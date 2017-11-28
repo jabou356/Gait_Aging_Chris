@@ -1,48 +1,43 @@
-function [ param, nonparam ] = TwoWayAnova_1rm_1D( Megadatabase, signal, statistic, variable)
+function [ ANOVA, Regression ] = OneWayANOVA( Megadatabase, muscle, statistic)
 %TwoWayAnova_1rm_1D Summary of this function goes here
 %   Detailed explanation goes here
 
-trials=find(strcmp(signal,[Megadatabase.Signal]) & ...
+trials=find(strcmp(muscle,[Megadatabase.Muscle]) & ...
     strcmp(statistic,[Megadatabase.Stat]) & ...
-    arrayfun(@(x)(sum(isnan(x.(variable)))),Megadatabase)==0);
+    arrayfun(@(x)(sum(isnan(cell2mat(x.data)))),Megadatabase)==0 &...
+    ~isnan(cell2mat([Megadatabase.Age])));
 
 for itrial=length(trials):-1:1
-Y(itrial,1:100)=Megadatabase(trials(itrial)).(variable);
+Y(itrial,1:101)=cell2mat(Megadatabase(trials(itrial)).data);
 end
 
-Sex=[Megadatabase(trials).Sex];
+Age=cell2mat([Megadatabase(trials).Age]);
 
-Time=[Megadatabase(trials).Time];
-
-SUBJ=[Megadatabase(trials).SubjectID];
 
 %% Validate number of Men and Women
-Men=unique(SUBJ(Sex==1)); 
-Women=unique(SUBJ(Sex==2)); 
-
-if length(Men) ~= length(Women)
     
-npergroup=min([length(Men), length(Women)]);
+AgeGroup(Age<50)=1;
+AgeGroup(Age>=50 & Age<65)=2;
+AgeGroup(Age>=65)=3;
 
-Y=Y(ismember(SUBJ, Men(1:npergroup)) | ismember(SUBJ, Women(1:npergroup)),:);
-Sex=Sex(ismember(SUBJ, Men(1:npergroup)) | ismember(SUBJ, Women(1:npergroup)));
-Time=Time(ismember(SUBJ, Men(1:npergroup)) | ismember(SUBJ, Women(1:npergroup)));
-SUBJ=SUBJ(ismember(SUBJ, Men(1:npergroup)) | ismember(SUBJ, Women(1:npergroup)));
 
-end
 
-%(1) Conduct non-parametric test:
-rng(0)     %set the random number generator seed
-alpha      = 0.05;
-iterations = 10000;
-FFn        = spm1d.stats.nonparam.anova2onerm(Y, Sex, Time, SUBJ);
-nonparam       = FFn.inference(alpha, 'iterations', iterations);
-disp_summ(nonparam)
+% %(1) Conduct non-parametric test:
+% rng(0)     %set the random number generator seed
+% alpha      = 0.05;
+% iterations = 10000;
+% FFn        = spm1d.stats.nonparam.anova2onerm(Y, Sex, Time, SUBJ);
+% nonparam       = FFn.inference(alpha, 'iterations', iterations);
+% disp_summ(nonparam)
 
 %% Conduct parametric test
-FFp        = spm1d.stats.anova2onerm(Y, Sex, Time, SUBJ);
-param       = FFp.inference(alpha);
-disp_summ(param)
+FFp        = spm1d.stats.anova1(Y, AgeGroup);
+ANOVA       = FFp.inference(0.05);
+disp(ANOVA)
 
+%% Conduct parametric test
+FFp        = spm1d.stats.regress(Y, Age);
+Regression       = FFp.inference(0.05);
+disp(Regression)
 end
 
